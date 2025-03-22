@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highway Racer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #game-container {
+            position: relative;
+            width: 400px;
+            height: 600px;
+            overflow: hidden;
+            border: 4px solid #444;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: #333;
+        }
+        
+        #road {
+            position: absolute;
+            width: 60%;
+            height: 100%;
+            left: 20%;
+            background-color: #444;
+            overflow: hidden;
+        }
+        
+        .lane-marker {
+            position: absolute;
+            width: 10px;
+            height: 50px;
+            background-color: white;
+            left: calc(50% - 5px);
+        }
+        
+        #player-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-color: #f00;
+            border-radius: 5px;
+            bottom: 50px;
+            left: calc(50% - 20px);
+            z-index: 10;
+            background-image: linear-gradient(to bottom, #f00, #900);
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+        }
+        
+        #player-car:before, #player-car:after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 15px;
+            background-color: #333;
+            top: 10px;
+        }
+        
+        #player-car:before {
+            left: 5px;
+        }
+        
+        #player-car:after {
+            right: 5px;
+        }
+        
+        .traffic-car {
+            position: absolute;
+            width: 40px;
+            height: 70px;
+            background-image: linear-gradient(to bottom, #00f, #009);
+            border-radius: 5px;
+            z-index: 5;
+        }
+        
+        .traffic-car:before, .traffic-car:after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 15px;
+            background-color: #333;
+            bottom: 10px;
+        }
+        
+        .traffic-car:before {
+            left: 5px;
+        }
+        
+        .traffic-car:after {
+            right: 5px;
+        }
+        
+        .diamond {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: transparent;
+            z-index: 5;
+            transform: rotate(45deg);
+            animation: sparkle 1s infinite alternate;
+        }
+        
+        @keyframes sparkle {
+            0% { box-shadow: 0 0 5px 2px rgba(0, 255, 255, 0.7); }
+            100% { box-shadow: 0 0 15px 5px rgba(0, 255, 255, 0.9); }
+        }
+        
+        .fuel {
+            position: absolute;
+            width: 30px;
+            height: 40px;
+            background-color: #0f0;
+            border-radius: 5px;
+            z-index: 5;
+        }
+        
+        .fuel:after {
+            content: '';
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #0f0;
+            top: -5px;
+            left: 10px;
+            border-radius: 5px;
+        }
+        
+        .boost {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #ff0;
+            border-radius: 50%;
+            z-index: 5;
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 5px 2px rgba(255, 255, 0, 0.7); }
+            100% { transform: scale(1.1); box-shadow: 0 0 15px 5px rgba(255, 255, 0, 0.9); }
+        }
+        
+        .explosion {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: transparent;
+            z-index: 20;
+            animation: explode 0.5s forwards;
+        }
+        
+        @keyframes explode {
+            0% { transform: scale(0.1); background-color: rgba(255, 255, 0, 0.9); }
+            50% { background-color: rgba(255, 165, 0, 0.9); }
+            100% { transform: scale(1.5); background-color: rgba(255, 0, 0, 0); }
+        }
+        
+        #game-stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            z-index: 30;
+            text-shadow: 2px 2px 2px black;
+        }
+        
+        #fuel-gauge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 20px;
+            height: 100px;
+            background-color: #333;
+            border: 2px solid #555;
+            z-index: 30;
+        }
+        
+        #fuel-level {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background-color: #0f0;
+            transition: height 0.3s;
+        }
+        
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 50;
+            display: none;
+        }
+        
+        #game-over h2 {
+            color: #f00;
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px #f00;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        #game-over p {
+            color: white;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+        
+        #restart-btn {
+            padding: 10px 20px;
+            background-color: #0f0;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        #restart-btn:hover {
+            background-color: #0d0;
+            transform: scale(1.1);
+        }
+        
+        #controls-info {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            z-index: 30;
+        }
+        
+        #boost-indicator {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #ff0;
+            font-size: 16px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 30;
+            text-shadow: 0 0 5px #ff0;
+        }
+        
+        #level-indicator {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            color: white;
+            font-size: 14px;
+            z-index: 30;
+            text-shadow: 2px 2px 2px black;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-area">
+            <div id="road"></div>
+            <div id="player-car"></div>
+            <div id="game-stats">
+                Score: <span id="score">0</span><br>
+                Diamonds: <span id="diamonds">0</span><br>
+                High Score: <span id="high-score">0</span>
+            </div>
+            <div id="fuel-gauge">
+                <div id="fuel-level"></div>
+            </div>
+            <div id="boost-indicator">BOOST ACTIVE!</div>
+            <div id="level-indicator">Level: <span id="level">1</span></div>
+            <div id="controls-info">Use ← → to move, ↑ to speed up, ↓ to slow down</div>
+        </div>
+        <div id="game-over">
+            <h2>GAME OVER</h2>
+            <p>Your Score: <span id="final-score">0</span></p>
+            <p>High Score: <span id="final-high-score">0</span></p>
+            <button id="restart-btn">Play Again</button>
+        </div>
+    </div>
+    
+    <script>
+        // Game Variables
+        let playerCar = document.getElementById('player-car');
+        let gameArea = document.getElementById('game-area');
+        let road = document.getElementById('road');
+        let scoreElement = document.getElementById('score');
+        let diamondsElement = document.getElementById('diamonds');
+        let highScoreElement = document.getElementById('high-score');
+        let fuelLevelElement = document.getElementById('fuel-level');
+        let boostIndicator = document.getElementById('boost-indicator');
+        let levelIndicator = document.getElementById('level');
+        let finalScoreElement = document.getElementById('final-score');
+        let finalHighScoreElement = document.getElementById('final-high-score');
+        let gameOverScreen = document.getElementById('game-over');
+        let restartButton = document.getElementById('restart-btn');
+        
+        let gameWidth = gameArea.offsetWidth;
+        let gameHeight = gameArea.offsetHeight;
+        let roadWidth = road.offsetWidth;
+        let roadLeft = road.offsetLeft;
+        let carWidth = playerCar.offsetWidth;
+        let carHeight = playerCar.offsetHeight;
+        
+        let score = 0;
+        let diamonds = 0;
+        let highScore = localStorage.getItem('highScore') || 0;
+        let fuel = 100;
+        let level = 1;
+        let gameSpeed = 5;
+        let boostActive = false;
+        let boostTimer = null;
+        let keyStates = {};
+        let trafficCars = [];
+        let diamondObjects = [];
+        let powerUps = [];
+        let laneMarkers = [];
+        let gameRunning = true;
+        let animationId = null;
+        let lastTimestamp = 0;
+        let difficultyTimer = 0;
+        
+        // Set Initial Values
+        highScoreElement.textContent = highScore;
+        fuelLevelElement.style.height = fuel + '%';
+        levelIndicator.textContent = level;
+        
+        // Create Lane Markers
+        function createLaneMarkers() {
+            const markerCount = Math.ceil(gameHeight / 100);
+            for (let i = 0; i < markerCount; i++) {
+                let marker = document.createElement('div');
+                marker.classList.add('lane-marker');
+                marker.style.top = (i * 100) + 'px';
+                laneMarkers.push({
+                    element: marker,
+                    y: i * 100
+                });
+                road.appendChild(marker);
+            }
+        }
+        
+        // Handle Keyboard Input
+        document.addEventListener('keydown', function(e) {
+            keyStates[e.key] = true;
+            console.log('Key down:', e.key); // Debugging
+        });
+        
+        document.addEventListener('keyup', function(e) {
+            keyStates[e.key] = false;
+            console.log('Key up:', e.key); // Debugging
+        });
+        
+        // Move Player Car
+        function movePlayerCar() {
+            let playerLeft = playerCar.offsetLeft;
+            let moveX = 0;
+            let moveY = 0;
+            
+            // Calculate X movement
+            if (keyStates['ArrowLeft']) {
+                moveX = -8;
+            }
+            if (keyStates['ArrowRight']) {
+                moveX = 8;
+            }
+            
+            // Calculate Y movement (for boost)
+            if (keyStates['ArrowUp']) {
+                if (gameSpeed < 10) gameSpeed += 0.1;
+            }
+            if (keyStates['ArrowDown']) {
+                if (gameSpeed > 3) gameSpeed -= 0.1;
+            }
+            
+            // Apply movement with boundaries
+            let newLeft = playerLeft + moveX;
+            if (newLeft < roadLeft) {
+                newLeft = roadLeft;
+            }
+            if (newLeft > roadLeft + roadWidth - carWidth) {
+                newLeft = roadLeft + roadWidth - carWidth;
+            }
+            
+            playerCar.style.left = newLeft + 'px';
+        }
+        
+        // Create Traffic Car
+        function createTrafficCar() {
+            if (!gameRunning) return;
+            
+            let car = document.createElement('div');
+            car.classList.add('traffic-car');
+            
+            // Random lane position (3 lanes)
+            let laneWidth = roadWidth / 3;
+            let lane = Math.floor(Math.random() * 3);
+            let leftPosition = roadLeft + (lane * laneWidth) + (laneWidth / 2) - (carWidth / 2);
+            
+            car.style.left = leftPosition + 'px';
+            car.style.top = '-100px';
+            
+            // Random color for variety
+            const colors = ['#00f', '#080', '#808', '#088', '#880', '#f80'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            car.style.backgroundImage = `linear-gradient(to bottom, ${randomColor}, ${randomColor.replace('f', '8').replace('0', '0')})`;
+            
+            gameArea.appendChild(car);
+            
+            trafficCars.push({
+                element: car,
+                y: -100,
+                x: leftPosition,
+                speed: gameSpeed * (0.7 + Math.random() * 0.6) // Varying speeds
+            });
+            
+            // Frequency of traffic cars increases with level
+            setTimeout(createTrafficCar, 1500 - (level * 100 > 1200 ? 1200 : level * 100));
+        }
+        
+        // Create Diamond
+        function createDiamond() {
+            if (!gameRunning) return;
+            
+            let diamond = document.createElement('div');
+            diamond.classList.add('diamond');
+            
+            // Position diamond randomly on the road
+            let leftPosition = roadLeft + Math.random() * (roadWidth - 30);
+            
+            diamond.style.left = leftPosition + 'px';
+            diamond.style.top = '-50px';
+            
+            // Style diamond to make it attractive
+            const diamondColors = ['#0ff', '#0f8', '#ff0', '#f0f', '#f80'];
+            const randomColor = diamondColors[Math.floor(Math.random() * diamondColors.length)];
+            diamond.style.borderWidth = '15px';
+            diamond.style.borderStyle = 'solid';
+            diamond.style.borderColor = `transparent transparent ${randomColor} transparent`;
+            
+            gameArea.appendChild(diamond);
+            
+            diamondObjects.push({
+                element: diamond,
+                y: -50,
+                x: leftPosition,
+                value: Math.floor(Math.random() * 3) + 1 // Random value 1-3
+            });
+            
+            // Frequency of diamonds decreases with level (making them rarer)
+            setTimeout(createDiamond, 5000 + Math.random() * 3000);
+        }
+        
+        // Create Power-Up
+        function createPowerUp() {
+            if (!gameRunning) return;
+            
+            let powerUpType = Math.random() < 0.3 ? 'fuel' : 'boost';
+            
+            let powerUp = document.createElement('div');
+            powerUp.classList.add(powerUpType);
+            
+            // Position power-up randomly on the road
+            let leftPosition = roadLeft + Math.random() * (roadWidth - 30);
+            
+            powerUp.style.left = leftPosition + 'px';
+            powerUp.style.top = '-50px';
+            
+            gameArea.appendChild(powerUp);
+            
+            powerUps.push({
+                element: powerUp,
+                y: -50,
+                x: leftPosition,
+                type: powerUpType
+            });
+            
+            // Random timing for power-ups
+            setTimeout(createPowerUp, 8000 + Math.random() * 7000);
+        }
+        
+        // Move Objects
+        function moveObjects(timestamp) {
+            if (!lastTimestamp) {
+                lastTimestamp = timestamp;
+            }
+            
+            const elapsed = timestamp - lastTimestamp;
+            lastTimestamp = timestamp;
+            
+            difficultyTimer += elapsed;
+            
+            // Increase difficulty every 10 seconds
+            if (difficultyTimer > 10000) {
+                difficultyTimer = 0;
+                level++;
+                levelIndicator.textContent = level;
+                if (gameSpeed < 12) gameSpeed += 0.5;
+            }
+            
+            // Decrease fuel over time
+            fuel -= 0.05;
+            if (fuel <= 0) {
+                gameOver();
+            }
+            fuelLevelElement.style.height = fuel + '%';
+            if (fuel < 30) {
+                fuelLevelElement.style.backgroundColor = '#f00';
+            } else {
+                fuelLevelElement.style.backgroundColor = '#0f0';
+            }
+            
+            // Move lane markers
+            laneMarkers.forEach(marker => {
+                marker.y += gameSpeed;
+                marker.element.style.top = marker.y + 'px';
+                
+                // Reset marker position when it goes off-screen
+                if (marker.y > gameHeight) {
+                    marker.y = -50;
+                    marker.element.style.top = marker.y + 'px';
+                }
+            });
+            
+            // Move traffic cars
+            trafficCars.forEach((car, index) => {
+                car.y += car.speed;
+                car.element.style.top = car.y + 'px';
+                
+                // Remove cars that go off-screen
+                if (car.y > gameHeight) {
+                    gameArea.removeChild(car.element);
+                    trafficCars.splice(index, 1);
+                    score += 1;
+                    scoreElement.textContent = score;
+                }
+                
+                // Check for collision with player
+                if (checkCollision(playerCar, car.element)) {
+                    createExplosion(parseInt(playerCar.style.left), parseInt(playerCar.style.top));
+                    gameOver();
+                }
+            });
+            
+            // Move diamonds
+            diamondObjects.forEach((diamond, index) => {
+                diamond.y += gameSpeed;
+                diamond.element.style.top = diamond.y + 'px';
+                
+                // Remove diamonds that go off-screen
+                if (diamond.y > gameHeight) {
+                    gameArea.removeChild(diamond.element);
+                    diamondObjects.splice(index, 1);
+                }
+                
+                // Check for collision with player
+                if (checkCollision(playerCar, diamond.element)) {
+                    gameArea.removeChild(diamond.element);
+                    diamondObjects.splice(index, 1);
+                    
+                    // Increment score and diamonds
+                    diamonds += diamond.value;
+                    score += diamond.value * 5;
+                    diamondsElement.textContent = diamonds;
+                    scoreElement.textContent = score;
+                    
+                    // Visual feedback
+                    let feedback = document.createElement('div');
+                    feedback.textContent = '+' + diamond.value;
+                    feedback.style.position = 'absolute';
+                    feedback.style.left = diamond.x + 'px';
+                    feedback.style.top = diamond.y + 'px';
+                    feedback.style.color = '#0ff';
+                    feedback.style.fontWeight = 'bold';
+                    feedback.style.fontSize = '20px';
+                    feedback.style.zIndex = '20';
+                    feedback.style.textShadow = '0 0 5px #0ff';
+                    gameArea.appendChild(feedback);
+                    
+                    // Animate feedback
+                    let feedbackY = diamond.y;
+                    let feedbackAnim = setInterval(() => {
+                        feedbackY -= 2;
+                        feedback.style.top = feedbackY + 'px';
+                        feedback.style.opacity = parseFloat(feedback.style.opacity || 1) - 0.02;
+                        if (parseFloat(feedback.style.opacity || 1) <= 0) {
+                            clearInterval(feedbackAnim);
+                            gameArea.removeChild(feedback);
+                        }
+                    }, 20);
+                }
+            });
+            
+            // Move power-ups
+            powerUps.forEach((powerUp, index) => {
+                powerUp.y += gameSpeed;
+                powerUp.element.style.top = powerUp.y + 'px';
+                
+                // Remove power-ups that go off-screen
+                if (powerUp.y > gameHeight) {
+                    gameArea.removeChild(powerUp.element);
+                    powerUps.splice(index, 1);
+                }
+                
+                // Check for collision with player
+                if (checkCollision(playerCar, powerUp.element)) {
+                    gameArea.removeChild(powerUp.element);
+                    powerUps.splice(index, 1);
+                    
+                    // Apply power-up effect
+                    if (powerUp.type === 'fuel') {
+                        fuel = Math.min(100, fuel + 30);
+                        fuelLevelElement.style.height = fuel + '%';
+                    } else if (powerUp.type === 'boost') {
+                        activateBoost();
+                    }
+                    
+                    // Visual feedback
+                    let feedback = document.createElement('div');
+                    feedback.textContent = powerUp.type === 'fuel' ? 'FUEL +30%' : 'BOOST!';
+                    feedback.style.position = 'absolute';
+                    feedback.style.left = powerUp.x + 'px';
+                    feedback.style.top = powerUp.y + 'px';
+                    feedback.style.color = powerUp.type === 'fuel' ? '#0f0' : '#ff0';
+                    feedback.style.fontWeight = 'bold';
+                    feedback.style.fontSize = '20px';
+                    feedback.style.zIndex = '20';
+                    feedback.style.textShadow = `0 0 5px ${powerUp.type === 'fuel' ? '#0f0' : '#ff0'}`;
+                    gameArea.appendChild(feedback);
+                    
+                    // Animate feedback
+                    let feedbackY = powerUp.y;
+                    let feedbackAnim = setInterval(() => {
+                        feedbackY -= 2;
+                        feedback.style.top = feedbackY + 'px';
+                        feedback.style.opacity = parseFloat(feedback.style.opacity || 1) - 0.02;
+                        if (parseFloat(feedback.style.opacity || 1) <= 0) {
+                            clearInterval(feedbackAnim);
+                            gameArea.removeChild(feedback);
+                        }
+                    }, 20);
+                }
+            });
+            
+            // Move player car
+            movePlayerCar();
+            
+            // Continue animation loop
+            if (gameRunning) {
+                animationId = requestAnimationFrame(moveObjects);
+            }
+        }
+        
+        // Activate Boost
+        function activateBoost() {
+            // Clear existing boost if active
+            if (boostTimer) {
+                clearTimeout(boostTimer);
+            }
+            
+            boostActive = true;
+            let originalSpeed = gameSpeed;
+            gameSpeed *= 1.5;
+            boostIndicator.style.opacity = 1;
+            
+            // Player car visual effect
+            playerCar.style.boxShadow = '0 0 20px rgba(255, 255, 0, 0.9)';
+            
+            // End boost after 5 seconds
+            boostTimer = setTimeout(() => {
+                boostActive = false;
+                gameSpeed = originalSpeed;
+                boostIndicator.style.opacity = 0;
+                playerCar.style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+            }, 5000);
+        }
+        
+        // Check Collision between two elements
+        function checkCollision(element1, element2) {
+            const rect1 = element1.getBoundingClientRect();
+            const rect2 = element2.getBoundingClientRect();
+            
+            return !(
+                rect1.right < rect2.left || 
+                rect1.left > rect2.right || 
+                rect1.bottom < rect2.top || 
+                rect1.top > rect2.bottom
+            );
+        }
+        
+        // Create Explosion Animation
+        function createExplosion(x, y) {
+            let explosion = document.createElement('div');
+            explosion.classList.add('explosion');
+            explosion.style.left = (x - 20) + 'px';
+            explosion.style.top = (y - 20) + 'px';
+            gameArea.appendChild(explosion);
+            
+            setTimeout(() => {
+                gameArea.removeChild(explosion);
+            }, 500);
+        }
+        
+        // Game Over
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            // Check for high score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('highScore', highScore);
+            }
+            
+            // Update game over screen
+            finalScoreElement.textContent = score;
+            finalHighScoreElement.textContent = highScore;
+            gameOverScreen.style.display = 'flex';
+        }
+        
+        // Restart Game
+        function restartGame() {
+            // Reset variables
+            score = 0;
+            diamonds = 0;
+            fuel = 100;
+            level = 1;
+            gameSpeed = 5;
+            boostActive = false;
+            difficultyTimer = 0;
+            if (boostTimer) clearTimeout(boostTimer);
+            
+            // Clear arrays
+            trafficCars.forEach(car => {
+                gameArea.removeChild(car.element);
+            });
+            trafficCars = [];
+            
+            diamondObjects.forEach(diamond => {
+                gameArea.removeChild(diamond.element);
+            });
+            diamondObjects = [];
+            
+            powerUps.forEach(powerUp => {
+                gameArea.removeChild(powerUp.element);
+            });
+            powerUps = [];
+            
+            // Reset UI elements
+            scoreElement.textContent = score;
+            diamondsElement.textContent = diamonds;
+            highScoreElement.textContent = highScore;
+            fuelLevelElement.style.height = fuel + '%';
+            fuelLevelElement.style.backgroundColor = '#0f0';
+            levelIndicator.textContent = level;
+            boostIndicator.style.opacity = 0;
+            playerCar.style.boxShadow = '0 0 10px rgba(255, 0, 0, 0.7)';
+            
+            // Reset player position
+            playerCar.style.left = (gameWidth / 2 - carWidth / 2) + 'px';
+            
+            // Hide game over screen
+            gameOverScreen.style.display = 'none';
+            
+            // Restart game
+            gameRunning = true;
+            lastTimestamp = 0;
+            
+            // Start game elements
+            createTrafficCar();
+            createDiamond();
+            createPowerUp();
+            animationId = requestAnimationFrame(moveObjects);
+        }
+        
+        // Initialize Game
+        function initGame() {
+            createLaneMarkers();
+            createTrafficCar();
+            createDiamond();
+            createPowerUp();
+            movePlayerCar();
+            animationId = requestAnimationFrame(moveObjects);
+        }
+        
+        // Event listeners
+        restartButton.addEventListener('click', restartGame);
+        
+        // Start the game
+        initGame();
+    </script>
+</body>
+</html>
