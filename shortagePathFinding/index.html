@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shortest Path Finding Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        button:hover {
+            background-color: #45a049;
+        }
+        
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
+        #status {
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        #grid {
+            border: 2px solid #333;
+            background-color: white;
+        }
+        
+        .legend {
+            display: flex;
+            margin-top: 15px;
+            gap: 15px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .color-box {
+            width: 20px;
+            height: 20px;
+            border: 1px solid #333;
+        }
+        
+        .start { background-color: green; }
+        .end { background-color: blue; }
+        .obstacle { background-color: black; }
+        .path { background-color: red; }
+    </style>
+</head>
+<body>
+    <h1>Shortest Path Finding Game</h1>
+    
+    <div class="controls">
+        <button id="setStartBtn">Set Start Point</button>
+        <button id="setEndBtn">Set End Point</button>
+        <button id="addObstacleBtn">Add Obstacles</button>
+        <button id="findPathBtn" disabled>Find Shortest Path</button>
+        <button id="clearBtn">Clear Grid</button>
+    </div>
+    
+    <div id="status">Click 'Set Start Point' to begin</div>
+    
+    <canvas id="grid" width="600" height="400"></canvas>
+    
+    <div class="legend">
+        <div class="legend-item">
+            <div class="color-box start"></div>
+            <span>Start</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box end"></div>
+            <span>End</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box obstacle"></div>
+            <span>Obstacle</span>
+        </div>
+        <div class="legend-item">
+            <div class="color-box path"></div>
+            <span>Path</span>
+        </div>
+    </div>
+    
+    <script>
+        // Constants
+        const CELL_SIZE = 20;
+        const GRID_WIDTH = 600;
+        const GRID_HEIGHT = 400;
+        const COLS = Math.floor(GRID_WIDTH / CELL_SIZE);
+        const ROWS = Math.floor(GRID_HEIGHT / CELL_SIZE);
+        
+        // Cell types
+        const EMPTY = 0;
+        const START = 1;
+        const END = 2;
+        const OBSTACLE = 3;
+        const PATH = 4;
+        
+        // Game state
+        let grid = [];
+        let startPoint = null;
+        let endPoint = null;
+        let currentMode = null;
+        
+        // References to DOM elements
+        const canvas = document.getElementById('grid');
+        const ctx = canvas.getContext('2d');
+        const statusDisplay = document.getElementById('status');
+        const setStartBtn = document.getElementById('setStartBtn');
+        const setEndBtn = document.getElementById('setEndBtn');
+        const addObstacleBtn = document.getElementById('addObstacleBtn');
+        const findPathBtn = document.getElementById('findPathBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        
+        // Initialize the grid
+        function initGrid() {
+            grid = [];
+            for (let i = 0; i < ROWS; i++) {
+                let row = [];
+                for (let j = 0; j < COLS; j++) {
+                    row.push(EMPTY);
+                }
+                grid.push(row);
+            }
+            startPoint = null;
+            endPoint = null;
+            currentMode = null;
+            findPathBtn.disabled = true;
+            drawGrid();
+            updateStatus("Click 'Set Start Point' to begin");
+        }
+        
+        // Draw the grid
+        function drawGrid() {
+            ctx.clearRect(0, 0, GRID_WIDTH, GRID_HEIGHT);
+            
+            // Draw grid lines
+            ctx.strokeStyle = "#ddd";
+            ctx.lineWidth = 0.5;
+            
+            for (let i = 0; i <= ROWS; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * CELL_SIZE);
+                ctx.lineTo(GRID_WIDTH, i * CELL_SIZE);
+                ctx.stroke();
+            }
+            
+            for (let j = 0; j <= COLS; j++) {
+                ctx.beginPath();
+                ctx.moveTo(j * CELL_SIZE, 0);
+                ctx.lineTo(j * CELL_SIZE, GRID_HEIGHT);
+                ctx.stroke();
+            }
+            
+            // Draw cells
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    const cell = grid[i][j];
+                    if (cell !== EMPTY) {
+                        ctx.fillStyle = getCellColor(cell);
+                        ctx.fillRect(j * CELL_SIZE, i * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+                    }
+                }
+            }
+        }
+        
+        // Get cell color based on cell type
+        function getCellColor(cellType) {
+            switch (cellType) {
+                case START: return "green";
+                case END: return "blue";
+                case OBSTACLE: return "black";
+                case PATH: return "red";
+                default: return "white";
+            }
+        }
+        
+        // Update status message
+        function updateStatus(message) {
+            statusDisplay.textContent = message;
+        }
+        
+        // Set current mode
+        function setMode(mode) {
+            currentMode = mode;
+            setStartBtn.style.backgroundColor = mode === 'start' ? "#45a049" : "#4CAF50";
+            setEndBtn.style.backgroundColor = mode === 'end' ? "#45a049" : "#4CAF50";
+            addObstacleBtn.style.backgroundColor = mode === 'obstacle' ? "#45a049" : "#4CAF50";
+            
+            switch (mode) {
+                case 'start':
+                    updateStatus("Click on the grid to set start point");
+                    break;
+                case 'end':
+                    updateStatus("Click on the grid to set end point");
+                    break;
+                case 'obstacle':
+                    updateStatus("Click and drag to add obstacles");
+                    break;
+                default:
+                    updateStatus("Select an option to continue");
+            }
+        }
+        
+        // Handle canvas click
+        function handleCanvasClick(e) {
+            if (!currentMode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            const col = Math.floor(x / CELL_SIZE);
+            const row = Math.floor(y / CELL_SIZE);
+            
+            if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+            
+            if (currentMode === 'start') {
+                // Remove existing start point
+                if (startPoint) {
+                    grid[startPoint.row][startPoint.col] = EMPTY;
+                }
+                
+                grid[row][col] = START;
+                startPoint = { row, col };
+                updateStatus("Start point set. Now set an end point.");
+                setMode('end');
+            } else if (currentMode === 'end') {
+                // Don't allow end point on start point
+                if (grid[row][col] === START) return;
+                
+                // Remove existing end point
+                if (endPoint) {
+                    grid[endPoint.row][endPoint.col] = EMPTY;
+                }
+                
+                grid[row][col] = END;
+                endPoint = { row, col };
+                updateStatus("End point set. Add obstacles or find path.");
+                setMode('obstacle');
+                findPathBtn.disabled = false;
+            } else if (currentMode === 'obstacle') {
+                // Don't allow obstacles on start or end points
+                if (grid[row][col] === START || grid[row][col] === END) return;
+                
+                if (grid[row][col] === OBSTACLE) {
+                    grid[row][col] = EMPTY;
+                } else {
+                    grid[row][col] = OBSTACLE;
+                }
+            }
+            
+            // Clear any existing path
+            clearPath();
+            
+            drawGrid();
+        }
+        
+        // Handle mouse move for obstacle drawing
+        let isDrawing = false;
+        
+        function handleMouseDown(e) {
+            if (currentMode === 'obstacle') {
+                isDrawing = true;
+                handleCanvasClick(e);
+            }
+        }
+        
+        function handleMouseMove(e) {
+            if (isDrawing && currentMode === 'obstacle') {
+                handleCanvasClick(e);
+            }
+        }
+        
+        function handleMouseUp() {
+            isDrawing = false;
+        }
+        
+        // Clear path cells
+        function clearPath() {
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    if (grid[i][j] === PATH) {
+                        grid[i][j] = EMPTY;
+                    }
+                }
+            }
+        }
+        
+        // Find shortest path using A* algorithm
+        function findPath() {
+            // Clear any existing path
+            clearPath();
+            
+            if (!startPoint || !endPoint) {
+                updateStatus("Please set both start and end points first.");
+                return;
+            }
+            
+            const openSet = [startPoint];
+            const closedSet = [];
+            const gScore = {}; // Cost from start to current node
+            const fScore = {}; // Estimated cost from start to end through current node
+            const cameFrom = {}; // To reconstruct the path
+            
+            // Initialize scores
+            for (let i = 0; i < ROWS; i++) {
+                for (let j = 0; j < COLS; j++) {
+                    gScore[`${i},${j}`] = Infinity;
+                    fScore[`${i},${j}`] = Infinity;
+                }
+            }
+            
+            gScore[`${startPoint.row},${startPoint.col}`] = 0;
+            fScore[`${startPoint.row},${startPoint.col}`] = heuristic(startPoint, endPoint);
+            
+            while (openSet.length > 0) {
+                // Find node with lowest fScore
+                let currentIndex = 0;
+                for (let i = 1; i < openSet.length; i++) {
+                    const current = openSet[currentIndex];
+                    const node = openSet[i];
+                    
+                    if (fScore[`${node.row},${node.col}`] < fScore[`${current.row},${current.col}`]) {
+                        currentIndex = i;
+                    }
+                }
+                
+                const current = openSet[currentIndex];
+                
+                // If we reached the end
+                if (current.row === endPoint.row && current.col === endPoint.col) {
+                    reconstructPath(cameFrom, current);
+                    updateStatus("Path found!");
+                    drawGrid();
+                    return;
+                }
+                
+                // Remove current from openSet and add to closedSet
+                openSet.splice(currentIndex, 1);
+                closedSet.push(current);
+                
+                // Check neighbors
+                const neighbors = getNeighbors(current);
+                
+                for (const neighbor of neighbors) {
+                    const neighborKey = `${neighbor.row},${neighbor.col}`;
+                    
+                    // Skip if in closedSet or is an obstacle
+                    if (grid[neighbor.row][neighbor.col] === OBSTACLE || 
+                        closedSet.some(node => node.row === neighbor.row && node.col === neighbor.col)) {
+                        continue;
+                    }
+                    
+                    // Calculate tentative gScore
+                    const tentativeGScore = gScore[`${current.row},${current.col}`] + 1;
+                    
+                    // If not in openSet, add it
+                    const inOpenSet = openSet.some(node => node.row === neighbor.row && node.col === neighbor.col);
+                    if (!inOpenSet) {
+                        openSet.push(neighbor);
+                    } else if (tentativeGScore >= gScore[neighborKey]) {
+                        // Not a better path
+                        continue;
+                    }
+                    
+                    // This is the best path so far
+                    cameFrom[neighborKey] = current;
+                    gScore[neighborKey] = tentativeGScore;
+                    fScore[neighborKey] = gScore[neighborKey] + heuristic(neighbor, endPoint);
+                }
+            }
+            
+            // No path found
+            updateStatus("No path exists between start and end points!");
+            return;
+        }
+        
+        // Heuristic function (Manhattan distance)
+        function heuristic(a, b) {
+            return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
+        }
+        
+        // Get valid neighbors
+        function getNeighbors(node) {
+            const { row, col } = node;
+            const neighbors = [];
+            
+            // Check 4 adjacent cells (up, right, down, left)
+            const directions = [
+                { row: -1, col: 0 }, // up
+                { row: 0, col: 1 },  // right
+                { row: 1, col: 0 },  // down
+                { row: 0, col: -1 }  // left
+            ];
+            
+            for (const dir of directions) {
+                const newRow = row + dir.row;
+                const newCol = col + dir.col;
+                
+                // Skip if out of bounds
+                if (newRow < 0 || newRow >= ROWS || newCol < 0 || newCol >= COLS) {
+                    continue;
+                }
+                
+                neighbors.push({ row: newRow, col: newCol });
+            }
+            
+            return neighbors;
+        }
+        
+        // Reconstruct path
+        function reconstructPath(cameFrom, current) {
+            while (cameFrom[`${current.row},${current.col}`]) {
+                current = cameFrom[`${current.row},${current.col}`];
+                
+                // Skip start and end points
+                if (current.row === startPoint.row && current.col === startPoint.col) {
+                    break;
+                }
+                
+                // Mark path
+                grid[current.row][current.col] = PATH;
+            }
+        }
+        
+        // Event listeners
+        setStartBtn.addEventListener('click', () => setMode('start'));
+        setEndBtn.addEventListener('click', () => setMode('end'));
+        addObstacleBtn.addEventListener('click', () => setMode('obstacle'));
+        findPathBtn.addEventListener('click', findPath);
+        clearBtn.addEventListener('click', initGrid);
+        
+        canvas.addEventListener('click', handleCanvasClick);
+        canvas.addEventListener('mousedown', handleMouseDown);
+        canvas.addEventListener('mousemove', handleMouseMove);
+        canvas.addEventListener('mouseup', handleMouseUp);
+        canvas.addEventListener('mouseleave', handleMouseUp);
+        
+        // Initialize the game
+        initGrid();
+    </script>
+</body>
+</html>
